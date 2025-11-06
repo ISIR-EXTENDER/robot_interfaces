@@ -13,7 +13,6 @@
 #include "geometry_msgs/msg/twist.hpp"
 #include "rclcpp/rclcpp.hpp"
 
-#include "robot_interfaces/command_interfaces.hpp"
 #include "robot_interfaces/generic_component.hpp"
 
 namespace robot_interfaces
