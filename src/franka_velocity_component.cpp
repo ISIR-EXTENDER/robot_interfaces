@@ -5,6 +5,8 @@ namespace robot_interfaces
   FrankaCartesianVelocity::FrankaCartesianVelocity()
       : GenericComponent("cartesian_velocity_franka", 0, 6)
   {
+    RCLCPP_INFO(rclcpp::get_logger("FrankaCartesianVelocity"),
+                "Robot Interface - Franka Cartesian Velocity Interface in use.");
   }
 
   bool FrankaCartesianVelocity::setCommand(const CommandVariant &command)
@@ -20,7 +22,7 @@ namespace robot_interfaces
     else
     {
       RCLCPP_ERROR(rclcpp::get_logger("FrankaCartesianVelocity"),
-                  "Received an unsupported command type.");
+                   "Received an unsupported command type.");
       return false;
     }
   }
