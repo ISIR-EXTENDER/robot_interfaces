@@ -3,10 +3,17 @@
 namespace robot_interfaces
 {
   FrankaCartesianVelocity::FrankaCartesianVelocity()
-      : GenericComponent("cartesian_velocity_franka", 0, 6)
+      : GenericComponent("cartesian_velocity_command", 0, 6)
   {
     RCLCPP_INFO(rclcpp::get_logger("FrankaCartesianVelocity"),
                 "Robot Interface - Franka Cartesian Velocity Interface in use.");
+
+    // setup specific franka command name
+    for(const auto& vel_name : cartesian_vel_names)
+    {
+      std::string franka_command_name = vel_name + "/cartesian_velocity";
+      command_names.push_back(franka_command_name);
+    }
   }
 
   bool FrankaCartesianVelocity::setCommand(const CommandVariant &command)
