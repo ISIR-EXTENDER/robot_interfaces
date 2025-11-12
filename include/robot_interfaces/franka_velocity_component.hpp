@@ -17,9 +17,24 @@
 
 namespace robot_interfaces
 {
+  /**
+   * @class FrankaCartesianVelocity
+   * @brief A specialized robot component for controlling a Franka Emika robot using Cartesian
+   * velocity commands.
+   *
+   * This class inherits from `GenericComponent` and implements the specific logic required to
+   * handle and set Cartesian velocity commands for a Franka robot. It is designed to be part of a
+   * modular robot control framework where different components manage different types of commands.
+   */
   class FrankaCartesianVelocity : public GenericComponent
   {
   public:
+    /**
+     * @brief Construct a new FrankaCartesianVelocity object.
+     *
+     * Initializes the component, setting up its command interface names and preparing it
+     * to receive Cartesian velocity commands.
+     */
     explicit FrankaCartesianVelocity();
 
     bool setCommand(const CommandVariant &command) override;

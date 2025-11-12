@@ -9,7 +9,7 @@ namespace robot_interfaces
                 "Robot Interface - Franka Cartesian Velocity Interface in use.");
 
     // setup specific franka command name
-    for(const auto& vel_name : cartesian_vel_names)
+    for (const auto &vel_name : cartesian_vel_names)
     {
       std::string franka_command_name = vel_name + "/cartesian_velocity";
       command_names.push_back(franka_command_name);
@@ -26,7 +26,7 @@ namespace robot_interfaces
 
       return set_values(full_command); // Or whatever your set_values function is called
     }
-    else
+    else  
     {
       RCLCPP_ERROR(rclcpp::get_logger("FrankaCartesianVelocity"),
                    "Received an unsupported command type.");
