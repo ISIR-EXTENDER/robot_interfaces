@@ -22,7 +22,7 @@ namespace robot_interfaces
       state_names.emplace_back(franka_state_name);
     }
     // joints
-    for (size_t i = 0; i < 7; i++)
+    for (size_t i = 1; i <= 7; i++)
     {
       std::string franka_state_name = "fr3_joint" + std::to_string(i) + "/position";
       state_names.emplace_back(franka_state_name);
