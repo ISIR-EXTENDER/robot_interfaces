@@ -13,16 +13,16 @@
 
 namespace robot_interfaces
 {
-  /// @brief Generic cartesian velocity command for a manipulator end effector
-  struct CartesianVelocityCommand
+  /// @brief Generic cartesian velocity for a manipulator end effector
+  struct CartesianVelocity
   {
     /// @brief Linear velocity (x, y, z)
     Eigen::Vector3d linear;
     /// @brief Angular velocity (roll, pitch, yaw)
     Eigen::Vector3d angular;
   };
-  /// @brief Generic cartesian position command for a manipulator end effector
-  struct CartesianPositionCommand
+  /// @brief Generic cartesian position for a manipulator end effector
+  struct CartesianPosition
   {
     /// @brief Target position (x, y, z)
     Eigen::Vector3d translation;
@@ -30,7 +30,7 @@ namespace robot_interfaces
     Eigen::Quaterniond quaternion;
   };
   /// @brief A variant to hold all the possible commands
-  using CommandVariant = std::variant<CartesianVelocityCommand, CartesianPositionCommand>;
+  using CommandVariant = std::variant<CartesianVelocity, CartesianPosition>;
 
   /// @brief Generic robot interfaces inspired by the franka approach and the
   /// semantic_component from ros2_control
@@ -125,7 +125,16 @@ namespace robot_interfaces
      * @param command The command to be set, contained within a std::variant.
      * @return true if the command was successfully processed, false otherwise.
      */
-    virtual bool setCommand(const CommandVariant &command);
+    virtual bool setCommand(const CommandVariant &command) = 0;
+
+    /**
+     * @brief Get pose of the end effector.
+     *
+     * This virtual function has to be overridden by derived classes to handle specific
+     * hardware interface for each robot.
+     *
+     */
+    virtual CartesianPosition getCurrentEndEffectorPose() const = 0;
 
   protected:
     std::string component_name;

@@ -103,9 +103,4 @@ namespace robot_interfaces
 
     return true;
   }
-
-  bool GenericComponent::setCommand(const CommandVariant &command)
-  {
-  }
-
 } // namespace robot_interfaces

@@ -39,9 +39,9 @@ namespace robot_interfaces
 
     bool setCommand(const CommandVariant &command) override;
 
+    CartesianPosition getCurrentEndEffectorPose() const override;
+
   private:
     const std::array<std::string, 6> cartesian_vel_names{"vx", "vy", "vz", "wx", "wy", "wz"};
-
-    const std::string cartesian_vel_command_name{"cartesian_velocity"};
   }; // class FrankaCartesianVelocity
 } // namespace robot_interfaces

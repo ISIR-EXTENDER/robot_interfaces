@@ -12,26 +12,62 @@ namespace robot_interfaces
     for (const auto &vel_name : cartesian_vel_names)
     {
       std::string franka_command_name = vel_name + "/cartesian_velocity";
-      command_names.push_back(franka_command_name);
+      command_names.emplace_back(franka_command_name);
+    }
+    // setup states for franka
+    // cartesian pose of end effector
+    for (size_t i = 0; i < 16; i++)
+    {
+      std::string franka_state_name = std::to_string(i) + "/cartesian_pose_state";
+      state_names.emplace_back(franka_state_name);
+    }
+    // joints
+    for (size_t i = 0; i < 7; i++)
+    {
+      std::string franka_state_name = "fr3_joint" + std::to_string(i) + "/position";
+      state_names.emplace_back(franka_state_name);
+      franka_state_name = "fr3_joint" + std::to_string(i) + "/velocity";
+      state_names.emplace_back(franka_state_name);
+      franka_state_name = "fr3_joint" + std::to_string(i) + "/effort";
+      state_names.emplace_back(franka_state_name);
     }
   }
 
   bool FrankaCartesianVelocity::setCommand(const CommandVariant &command)
   {
-    if (const auto *vel_command = std::get_if<CartesianVelocityCommand>(&command))
+    if (const auto *vel_command = std::get_if<CartesianVelocity>(&command))
     {
       std::vector<double> full_command{vel_command->linear.x(),  vel_command->linear.y(),
                                        vel_command->linear.z(),  vel_command->angular.x(),
                                        vel_command->angular.y(), vel_command->angular.z()};
 
-      return set_values(full_command); // Or whatever your set_values function is called
+      return set_values(full_command); 
     }
-    else  
+    else
     {
       RCLCPP_ERROR(rclcpp::get_logger("FrankaCartesianVelocity"),
                    "Received an unsupported command type.");
       return false;
     }
+  }
+
+  CartesianPosition FrankaCartesianVelocity::getCurrentEndEffectorPose() const
+  {
+    constexpr size_t cartesian_pose_size = 16;
+    std::array<double, cartesian_pose_size> current_pose_array{};
+
+    const auto all_states = get_states_values();
+
+    std::copy_n(all_states.begin(), cartesian_pose_size, current_pose_array.begin());
+
+    Eigen::Matrix4d pose_matrix =
+        Eigen::Map<Eigen::Matrix<double, 4, 4, Eigen::ColMajor>>(current_pose_array.data());
+
+    Eigen::Quaterniond orientation(pose_matrix.block<3, 3>(0, 0));
+    orientation.normalize();
+    Eigen::Vector3d translation(pose_matrix.block<3, 1>(0, 3));
+    
+    return {translation, orientation};
   }
 
 } // namespace robot_interfaces
