@@ -2,8 +2,10 @@
 
 #include <iostream>
 #include <memory>
+#include <string>
 
 #include "robot_interfaces/franka_velocity_component.hpp"
+#include "robot_interfaces/kinova_velocity_component.hpp"
 #include "robot_interfaces/generic_component.hpp"
 
 namespace robot_interfaces

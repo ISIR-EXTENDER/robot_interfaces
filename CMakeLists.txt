@@ -38,6 +38,7 @@ endforeach()
 add_library(
   robot_interfaces SHARED
   src/franka_velocity_component.cpp
+  src/kinova_velocity_component.cpp 
   src/generic_component.cpp
   src/robot_interfaces_algos.cpp)
 
