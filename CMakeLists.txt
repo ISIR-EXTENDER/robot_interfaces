@@ -10,12 +10,11 @@ set(ROS2_CONTROL_DEPS
   hardware_interface
   controller_interface)
 
-### Franka dependencies
+############## Franka dependencies
 set(FRANKA_DEPS
   Franka
   franka_hardware
   franka_msgs)
-
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
@@ -45,6 +44,7 @@ add_library(
   robot_interfaces SHARED
   src/franka_velocity_component.cpp
   src/kinova_velocity_component.cpp 
+  src/explorer_joint_position_component.cpp
   src/generic_component.cpp
   src/robot_interfaces_algos.cpp)
 

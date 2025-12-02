@@ -50,8 +50,14 @@ namespace robot_interfaces
     /// @brief Target orientation as a quaternion
     Eigen::Quaterniond quaternion;
   };
+
+  struct JointCommand
+  {
+    std::vector<double> command;
+  };
+
   /// @brief A variant to hold all the possible commands
-  using CommandVariant = std::variant<CartesianVelocity, CartesianPosition>;
+  using CommandVariant = std::variant<CartesianVelocity, CartesianPosition, JointCommand>;
 
   /// @brief Generic robot interfaces inspired by the franka approach and the
   /// semantic_component from ros2_control
