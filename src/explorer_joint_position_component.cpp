@@ -14,8 +14,6 @@ namespace robot_interfaces
       command_names.emplace_back(explorer_command_name);
 
       state_names.emplace_back(jname + "/position");
-      // state_names.emplace_back(jname + "/velocity");
-      // state_names.emplace_back(jname + "/effort");
     }
   }
 
