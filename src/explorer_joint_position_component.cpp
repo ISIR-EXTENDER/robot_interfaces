@@ -14,16 +14,16 @@ namespace robot_interfaces
       command_names.emplace_back(explorer_command_name);
 
       state_names.emplace_back(jname + "/position");
-      state_names.emplace_back(jname + "/velocity");
-      state_names.emplace_back(jname + "/effort");
+      // state_names.emplace_back(jname + "/velocity");
+      // state_names.emplace_back(jname + "/effort");
     }
   }
 
   bool ExplorerJointPosition::setCommand(const CommandVariant &command)
   {
-    if (const auto *vel_command = std::get_if<JointCommand>(&command))
+    if (const auto *jcommand = std::get_if<JointCommand>(&command))
     {
-      return set_values(vel_command->command);
+      return set_values(jcommand->command);
     }
     else
     {
