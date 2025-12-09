@@ -23,6 +23,13 @@ namespace robot_interfaces
   {
     if (const auto *jcommand = std::get_if<JointCommand>(&command))
     {
+      if (jcommand->command.size() != command_names.size())
+      {
+        RCLCPP_ERROR(
+            rclcpp::get_logger("ExplorerJointPosition"),
+            "Number of command values sent does not match the number of command_interface.");
+        return false;
+      }
       return set_values(jcommand->command);
     }
     else
@@ -32,10 +39,9 @@ namespace robot_interfaces
       return false;
     }
   }
-  
+
   CartesianPosition ExplorerJointPosition::getCurrentEndEffectorPose() const
   {
-    // TODO: Implement retrieval of the actual end-effector pose from state interfaces if available.
     CartesianPosition pose;
     pose.translation = Eigen::Vector3d::Zero();
     pose.quaternion = Eigen::Quaterniond::Identity();
