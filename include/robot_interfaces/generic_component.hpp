@@ -51,8 +51,10 @@ namespace robot_interfaces
     Eigen::Quaterniond quaternion;
   };
 
+  /// @brief Generic joint command. Can be used for position, velocity or effort.
   struct JointCommand
   {
+    /// @brief Vector of command. Must be the same size as the command interface vector
     std::vector<double> command;
   };
 
