@@ -1,13 +1,9 @@
 #pragma once
 
 #include <array>
+#include <memory>
 #include <string>
 #include <vector>
-#include <Eigen/Dense>
-
-#include "rclcpp/rclcpp.hpp"
-
-#include "geometry_msgs/msg/twist.hpp"
 
 #include "robot_interfaces/generic_component.hpp"
 
@@ -15,32 +11,24 @@ namespace robot_interfaces
 {
   /**
    * @class KinovaCartesianVelocity
-   * @brief A specialized robot component for controlling a Kinova Gen3 robot using Cartesian
-   * velocity commands.
+   * @brief Cartesian velocity controller for Kinova Gen3 7-DOF robot.
    *
-   * This class inherits from `GenericComponent` and implements the specific logic required to
-   * handle and set Cartesian velocity commands for a Kinova Gen3 robot. It is designed to be part
-   * of a modular robot control framework where different components manage different types of
-   * commands.
+   * Inherits KDL-based forward kinematics from GenericComponent.
+   * Provides Cartesian twist commands via tcp/twist.* interfaces.
    */
   class KinovaCartesianVelocity : public GenericComponent
   {
   public:
-    /**
-     * @brief Construct a new KinovaCartesianVelocity object.
-     *
-     * Initializes the component, setting up its command interface names and preparing it
-     * to receive Cartesian velocity commands.
-     */
     explicit KinovaCartesianVelocity();
+
+    ~KinovaCartesianVelocity();
 
     bool setCommand(const CommandVariant &command) override;
 
     CartesianPosition getCurrentEndEffectorPose() const override;
 
   private:
-    // Robot-specific hardware interface names for cartesian twist commands.
-    // Order must match the order used in setCommand().
+    // Robot-specific hardware interface names for cartesian twist commands
     const std::array<std::string, 6> command_interface_names_{
         "tcp/twist.linear.x",  "tcp/twist.linear.y",  "tcp/twist.linear.z",
         "tcp/twist.angular.x", "tcp/twist.angular.y", "tcp/twist.angular.z"};

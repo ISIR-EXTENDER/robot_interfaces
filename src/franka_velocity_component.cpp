@@ -1,5 +1,9 @@
 #include "robot_interfaces/franka_velocity_component.hpp"
 
+#include <Eigen/Geometry>
+#include <algorithm>
+#include <array>
+
 namespace robot_interfaces
 {
   FrankaCartesianVelocity::FrankaCartesianVelocity()
@@ -41,7 +45,7 @@ namespace robot_interfaces
                                        vel_command->linear.z(),  vel_command->angular.x(),
                                        vel_command->angular.y(), vel_command->angular.z()};
 
-      return set_values(full_command); 
+      return set_values(full_command);
     }
     else
     {
@@ -53,21 +57,47 @@ namespace robot_interfaces
 
   CartesianPosition FrankaCartesianVelocity::getCurrentEndEffectorPose() const
   {
+    // Return FK pose
+    return computeForwardKinematics();
+  }
+
+  CartesianPosition FrankaCartesianVelocity::getPoseFromStateInterfaces() const
+  {
     constexpr size_t cartesian_pose_size = 16;
-    std::array<double, cartesian_pose_size> current_pose_array{};
-
     const auto all_states = get_states_values();
+    if (all_states.size() < cartesian_pose_size)
+    {
+      static bool warned_once = false;
+      if (!warned_once)
+      {
+        RCLCPP_WARN(rclcpp::get_logger("FrankaCartesianVelocity"),
+                    "State pose unavailable: expected %zu values (4x4 pose), got %zu. Returning "
+                    "neutral pose.",
+                    cartesian_pose_size, all_states.size());
+        warned_once = true;
+      }
+      // Not enough data available; return a neutral pose to allow comparison callsites to proceed.
+      return {Eigen::Vector3d::Zero(), Eigen::Quaterniond::Identity()};
+    }
 
+    std::array<double, cartesian_pose_size> current_pose_array{};
     std::copy_n(all_states.begin(), cartesian_pose_size, current_pose_array.begin());
 
-    Eigen::Matrix4d pose_matrix =
-        Eigen::Map<Eigen::Matrix<double, 4, 4, Eigen::ColMajor>>(current_pose_array.data());
+    const Eigen::Matrix4d pose_matrix =
+        Eigen::Map<const Eigen::Matrix<double, 4, 4, Eigen::ColMajor>>(current_pose_array.data());
 
     Eigen::Quaterniond orientation(pose_matrix.block<3, 3>(0, 0));
     orientation.normalize();
-    Eigen::Vector3d translation(pose_matrix.block<3, 1>(0, 3));
-    
+    const Eigen::Vector3d translation(pose_matrix.block<3, 1>(0, 3));
+
     return {translation, orientation};
+  }
+
+  bool FrankaCartesianVelocity::hasStatePose() const
+  {
+    constexpr size_t cartesian_pose_size = 16;
+    const auto all_states = get_states_values();
+    return all_states.size() >= cartesian_pose_size;
   }
 
 } // namespace robot_interfaces
