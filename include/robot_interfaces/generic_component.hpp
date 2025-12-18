@@ -1,15 +1,36 @@
 #pragma once
 
+#include <array>
+#include <memory>
+#include <mutex>
 #include <string>
+#include <thread>
 #include <variant>
 #include <vector>
 
 #include <Eigen/Dense>
+#include <Eigen/Geometry>
 
 #include "hardware_interface/loaned_command_interface.hpp"
 #include "hardware_interface/loaned_state_interface.hpp"
 
 #include "controller_interface/helpers.hpp"
+
+#include "rclcpp/node_interfaces/node_base_interface.hpp"
+#include "rclcpp/node_interfaces/node_clock_interface.hpp"
+#include "rclcpp/node_interfaces/node_logging_interface.hpp"
+#include "rclcpp/node_interfaces/node_parameters_interface.hpp"
+#include "rclcpp/node_interfaces/node_topics_interface.hpp"
+#include "rclcpp/rclcpp.hpp"
+#include "rclcpp_lifecycle/lifecycle_node.hpp"
+#include "sensor_msgs/msg/joint_state.hpp"
+#include "std_msgs/msg/string.hpp"
+#include <rclcpp/create_subscription.hpp>
+
+#include "kdl/chain.hpp"
+#include "kdl/chainfksolverpos_recursive.hpp"
+#include "kdl/frames.hpp"
+#include "kdl/jntarray.hpp"
 
 namespace robot_interfaces
 {
@@ -136,7 +157,42 @@ namespace robot_interfaces
      */
     virtual CartesianPosition getCurrentEndEffectorPose() const = 0;
 
+    /**
+     * @brief Callback for joint state updates.
+     * Automatically stores positions and names for FK computation.
+     * Made public to allow binding in derived class constructors.
+     */
+    void onJointStateReceived(const sensor_msgs::msg::JointState::SharedPtr joint_state_message);
+
+    /**
+     * @brief Set the base frame and tool frame names for KDL chain extraction.
+     * Must be called before getCurrentEndEffectorPose() for correct FK computation.
+     *
+     * @param base_frame Name of the base frame in the URDF (e.g., "gen3_base_link")
+     * @param tool_frame Name of the tool/end-effector frame in the URDF (e.g.,
+     * "gen3_end_effector_link")
+     */
+    void setFrameNames(const std::string &base_frame, const std::string &tool_frame);
+
+    /**
+     * @brief Set the robot_description URDF string directly.
+     * Must be called before getCurrentEndEffectorPose() to enable forward kinematics.
+     *
+     * @param robot_description_xml The URDF robot description as a string
+     */
+    void setRobotDescription(const std::string &robot_description_xml);
+
+    /**
+     * @brief Set the ROS 2 node interfaces for parameter access and topic subscriptions.
+     * Supports both rclcpp::Node and rclcpp_lifecycle::LifecycleNode.
+     *
+     * @param node The ROS 2 node to extract interfaces from
+     */
+    void setNodeInterfaces(rclcpp::Node::SharedPtr node);
+    void setNodeInterfaces(rclcpp_lifecycle::LifecycleNode::SharedPtr node);
+
   protected:
+    // ==================== Generic Members ====================
     std::string component_name;
 
     std::vector<std::string> state_names;
@@ -147,5 +203,107 @@ namespace robot_interfaces
 
     std::vector<std::reference_wrapper<hardware_interface::LoanedCommandInterface>>
         command_interfaces;
+
+    // ==================== Kinematics Support (KDL-based) ====================
+
+    /**
+     * @brief Initialize KDL chain and FK solver (lazy initialization).
+     * Called automatically on first FK query. Reads frame names from ROS 2 parameters.
+     * @return true if initialization successful, false otherwise
+     */
+    bool initializeKDLChain() const;
+
+    /**
+     * @brief Verify mapping between KDL chain joints and current joint state names.
+     * Logs diagnostic differences to aid configuration issues.
+     */
+    void verifyJointNameAlignment() const;
+
+    /**
+     * @brief Initialize robot_description subscription (lazy initialization).
+     * Subscribes to the /robot_description topic published by robot_state_publisher.
+     */
+    void initializeRobotDescriptionSubscription() const;
+
+    /**
+     * @brief Callback for robot_description updates from the /robot_description topic.
+     * Automatically stores the URDF for FK chain initialization.
+     */
+    void onRobotDescriptionReceived(const std_msgs::msg::String::SharedPtr msg);
+
+    /**
+     * @brief Initialize joint state subscription (lazy initialization).
+     * Called once during first FK chain initialization.
+     */
+    void initializeJointStateSubscription() const;
+
+    /**
+     * @brief Compute forward kinematics for current joint positions.
+     * Requires KDL chain to be initialized.
+     * @return CartesianPosition with current end-effector pose
+     */
+    CartesianPosition computeForwardKinematics() const;
+
+    // ==================== Readiness Flags and Cached Pose ====================
+    // Readiness flags
+    mutable std::atomic<bool> have_robot_description_{false};
+    mutable std::atomic<bool> have_first_joint_state_{false};
+    mutable std::atomic<bool> kdl_ready_{false};
+
+    // Cached last pose
+    mutable std::mutex last_pose_mutex_;
+    mutable CartesianPosition last_pose_;
+    mutable std::atomic<bool> have_last_pose_{false};
+
+    // ROS 2 node interfaces for subscriptions and logging (extracted from controller's node)
+    rclcpp::node_interfaces::NodeBaseInterface::SharedPtr node_base_;
+    rclcpp::node_interfaces::NodeTopicsInterface::SharedPtr node_topics_;
+    rclcpp::node_interfaces::NodeLoggingInterface::SharedPtr node_logging_;
+    rclcpp::node_interfaces::NodeClockInterface::SharedPtr node_clock_;
+    rclcpp::Clock::SharedPtr node_clock_obj_;
+
+    // Optional weak reference to LifecycleNode (for diagnostics only, not kept alive)
+    mutable std::weak_ptr<rclcpp_lifecycle::LifecycleNode> lifecycle_node_;
+
+    rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_state_subscription_;
+    rclcpp::Subscription<std_msgs::msg::String>::SharedPtr robot_description_subscription_;
+
+    // Joint states topic (configurable via parameter)
+    std::string joint_states_topic_ = "/joint_states";
+
+    // Robot description URDF (thread-safe)
+    mutable std::mutex robot_description_mutex_;
+    std::string robot_description_xml_;
+
+    // Frame names for KDL chain extraction
+    std::string base_frame_name_ = "base_link";
+    std::string tool_frame_name_ = "tool_frame";
+
+    // Joint state management (thread-safe)
+    mutable std::mutex joint_state_access_mutex_;
+    std::vector<double> current_joint_positions_;
+    std::vector<std::string> current_joint_names_;
+    mutable std::chrono::steady_clock::time_point last_joint_state_update_{};
+    mutable std::vector<int>
+        kdl_to_state_index_; // mapping from KDL joint order to joint_state indices
+    mutable std::vector<double> rt_joint_positions_; // preallocated buffer sized to DOF
+    mutable std::atomic<bool> rt_buffer_ready_{false};
+    // Controls whether the RT-friendly joint buffer is used and maintained.
+    // When false (default), FK reads directly from current_joint_positions_.
+    bool use_rt_joint_buffer_{false};
+
+    // KDL forward kinematics solver
+    mutable KDL::Chain kdl_chain_;
+    mutable std::unique_ptr<KDL::ChainFkSolverPos_recursive> forward_kinematics_solver_;
+    mutable KDL::JntArray kdl_joint_angles_;
+    mutable bool kdl_chain_initialized_{false};
+    mutable bool kdl_chain_initialization_attempted_{false};
+    mutable bool robot_description_subscription_initialized_{false}; // Lazy subscription init
+    mutable bool joint_state_subscription_initialized_{false};       // Lazy subscription init
+    // Removed all waits/timeouts to keep controller-safe, non-blocking behavior
+
+    // Diagnostics configuration
+    mutable bool joint_alignment_verified_{false};
+    mutable bool fk_debug_logs_{true};
   }; // class GenericComponent
 } // namespace robot_interfaces

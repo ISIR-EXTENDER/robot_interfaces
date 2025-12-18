@@ -1,4 +1,5 @@
 #include "robot_interfaces/kinova_velocity_component.hpp"
+#include <rclcpp/rclcpp.hpp>
 
 namespace robot_interfaces
 {
@@ -7,18 +8,19 @@ namespace robot_interfaces
                          /*command_interface_size*/ 6)
   {
     RCLCPP_INFO(rclcpp::get_logger("KinovaCartesianVelocity"),
-                "Robot Interface - Kinova Gen3 Cartesian Velocity Interface in use.");
+                "Kinova Gen3 (7-DOF) Cartesian Velocity Interface initialized.");
 
+    // Set up command interface names
     command_names.clear();
-    // Use specific Kinova hardware interface names for velocity commands:
-    for (const auto &name : command_interface_names_)
+    for (const auto &command_interface_name : command_interface_names_)
     {
-      command_names.emplace_back(name);
+      command_names.emplace_back(command_interface_name);
     }
 
-    // TODO: No state interfaces for now.
     state_names.clear();
   }
+
+  KinovaCartesianVelocity::~KinovaCartesianVelocity() = default;
 
   bool KinovaCartesianVelocity::setCommand(const CommandVariant &command)
   {
@@ -47,16 +49,28 @@ namespace robot_interfaces
         vel_command->angular.z() 
     };
 
-    return set_values(values);
+    // Log at INFO level if any non-zero command
+    /*
+    if (std::any_of(values.begin(), values.end(), [](double v) { return std::abs(v) > 0.001; }))
+    {
+      RCLCPP_INFO(rclcpp::get_logger("KinovaCartesianVelocity"),
+                   "setCommand: lin[%.4f, %.4f, %.4f] ang[%.4f, %.4f, %.4f]",
+                   values[0], values[1], values[2], values[3], values[4], values[5]);
+    }
+    */
+
+    bool success = set_values(values);
+    if (!success)
+    {
+      RCLCPP_WARN(rclcpp::get_logger("KinovaCartesianVelocity"),
+                  "Failed to set command values");
+    }
+    return success;
   }
 
   CartesianPosition KinovaCartesianVelocity::getCurrentEndEffectorPose() const
   {
-    // TODO: Implement retrieval of the actual end-effector pose from state interfaces if available.
-    CartesianPosition pose;
-    pose.translation = Eigen::Vector3d::Zero();
-    pose.quaternion = Eigen::Quaterniond::Identity();
-    return pose;
+    return computeForwardKinematics();
   }
 
 } // namespace robot_interfaces
