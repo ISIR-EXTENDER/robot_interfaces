@@ -16,7 +16,6 @@ ROS 2 Control Framework
          ↓
 Hardware Interface (GenericComponent + Robot-Specific)
     ├── KDL Forward Kinematics (generic, any robot)
-    │   ├── Joint State Subscription
     │   ├── URDF Parsing
     │   └── Chain Extraction (base → tool frame)
     │
@@ -60,12 +59,8 @@ To enable end-effector pose feedback, set frames on the component (frames are no
 
 ```cpp
 robot_interfaces::KinovaCartesianVelocity component;
-// Provide node interfaces (creates subscriptions to /robot_description and /joint_states)
-component.setNodeInterfaces(lifecycle_node);
-// Provide URDF (either via /robot_description or directly):
-// component.setRobotDescription(urdf_xml);
 // Set frames for KDL chain extraction
-component.setFrameNames("gen3_base_link", "gen3_end_effector_link");
+component.initKinematics(string_urdf_xml, "gen3_base_link", "gen3_end_effector_link");
 ```
 
 ---
@@ -85,12 +80,8 @@ Set frames on the component (frames are not read from parameters in this package
 
 ```cpp
 robot_interfaces::FrankaCartesianVelocity component;
-// Provide node interfaces (creates subscriptions to /robot_description and /joint_states)
-component.setNodeInterfaces(lifecycle_node);
-// Provide URDF (either via /robot_description or directly):
-// component.setRobotDescription(urdf_xml);
 // Set frames for KDL chain extraction (Franka FR3)
-component.setFrameNames("base", "fr3_hand_tcp");
+component.initKinematics(string_urdf_xml, "base", "fr3_hand_tcp");
 ```
 
 ---
@@ -101,17 +92,13 @@ All derived components inherit **KDL-based forward kinematics** from `GenericCom
 
 **Requirements**:
 - URDF source:
-  - `/robot_description` topic (published by `robot_state_publisher`), or
+  - Either get it via `/robot_description` parameter (published by `robot_state_publisher`), or
   - provide XML directly via `setRobotDescription(xml)`
-- Frames: set via `setFrameNames(base_frame, tool_frame)`
+- Frames names: both base and the frame you want to control (End-effector)
   - Examples: Gen3 → `gen3_base_link` → `gen3_end_effector_link`; FR3 → `base` → `fr3_hand_tcp`
-- Joint states: `/joint_states` topic must be published (configurable via `joint_states_topic` parameter)
 
 **How it works**:
-1. Subscriptions to `/robot_description` and `/joint_states` are created in `setNodeInterfaces()`
-2. On first FK call, if URDF is available, KDL chain is initialized for `base_frame → tool_frame`
-3. Joint-name alignment mapping is built; optional RT joint buffer is activated if `use_rt_joint_buffer=true`
-4. FK uses current joint positions (RT buffer if fresh) to compute pose; quaternion is normalized and cached
+4. FK uses current joint positions available through the `state_interfaces` to compute pose; quaternion is normalized and cached
 
 Diagnostics:
 - Verifies joint-name alignment between KDL chain and `/joint_states` on init

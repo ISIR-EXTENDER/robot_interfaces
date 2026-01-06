@@ -5,16 +5,14 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
+#### Options
+option(ENABLE_FRANKA "Build with Franka Emika support" OFF)
+option(BUILD_TESTING "Build tests" OFF)
 ### ROS2 Control dependencies
 set(ROS2_CONTROL_DEPS
   hardware_interface
   controller_interface)
 
-############## Franka dependencies
-set(FRANKA_DEPS
-  Franka
-  franka_hardware
-  franka_msgs)
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
@@ -34,37 +32,72 @@ foreach(dep IN ITEMS ${ROS2_CONTROL_DEPS})
   find_package(${dep} REQUIRED)
 endforeach()
 
-### Franka specific dependencies
-foreach(dep IN ITEMS ${FRANKA_DEPS})
-  find_package(${dep} REQUIRED)
-endforeach()
+### Franka
+if(ENABLE_FRANKA)
+  set(FRANKA_DEPS
+    Franka
+    franka_hardware
+    franka_msgs)
+
+  foreach(dep IN ITEMS ${FRANKA_DEPS})
+    find_package(${dep} REQUIRED)
+  endforeach()
+endif()
+
+
+### Sources
+set(SRCS
+  src/kinova_velocity_component.cpp 
+  src/generic_component.cpp
+  src/robot_interfaces_algos.cpp
+  src/explorer_joint_position_component.cpp
+)
+
+if(ENABLE_FRANKA)
+    list(APPEND SRCS src/franka_velocity_component.cpp)
+endif()
 
 # Create library
 add_library(
-  robot_interfaces SHARED
-  src/franka_velocity_component.cpp
-  src/kinova_velocity_component.cpp 
-  src/explorer_joint_position_component.cpp
-  src/generic_component.cpp
-  src/robot_interfaces_algos.cpp)
+  robot_interfaces SHARED ${SRCS})
 
 
 target_include_directories(
   robot_interfaces PRIVATE include ${EIGEN3_INCLUDE_DIRS})
 
-target_link_libraries(robot_interfaces Franka::Franka Eigen3::Eigen ${orocos_kdl_LIBRARIES})
+target_link_libraries(robot_interfaces Eigen3::Eigen ${orocos_kdl_LIBRARIES})
 
 ament_target_dependencies(robot_interfaces Eigen3 geometry_msgs sensor_msgs 
                           orocos_kdl kdl_parser urdf
-                          ${ROS2_CONTROL_DEPS} ${FRANKA_DEPS})
+                          ${ROS2_CONTROL_DEPS})
+
+# Franka specific linking and definitions
+if(ENABLE_FRANKA)
+  target_compile_definitions(robot_interfaces PUBLIC BUILD_FRANKA_SUPPORT)
+
+  target_link_libraries(robot_interfaces Franka::Franka)
+  ament_target_dependencies(robot_interfaces ${FRANKA_DEPS})
+  target_compile_definitions(robot_interfaces PUBLIC ENABLE_FRANKA)
+endif()
+
 
 install(TARGETS robot_interfaces DESTINATION lib)
 install(DIRECTORY include/ DESTINATION include)
 
 ament_export_include_directories(include)
 ament_export_libraries(robot_interfaces)
-ament_export_dependencies(Eigen3 geometry_msgs sensor_msgs orocos_kdl kdl_parser urdf
-                          ${ROS2_CONTROL_DEPS} ${FRANKA_DEPS})
+
+# Base exports
+ament_export_dependencies(
+  Eigen3 geometry_msgs sensor_msgs 
+  orocos_kdl kdl_parser urdf
+  ${ROS2_CONTROL_DEPS}
+)
+
+# Conditional exports
+if(ENABLE_FRANKA)
+  ament_export_dependencies(${FRANKA_DEPS})
+endif()
 
 # ==================== Testing ====================
 if(BUILD_TESTING)
