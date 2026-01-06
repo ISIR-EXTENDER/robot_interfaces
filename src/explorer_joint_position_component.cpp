@@ -37,13 +37,4 @@ namespace robot_interfaces
       return false;
     }
   }
-
-  CartesianPosition ExplorerJointPosition::getCurrentEndEffectorPose() const
-  {
-    CartesianPosition pose;
-    pose.translation = Eigen::Vector3d::Zero();
-    pose.quaternion = Eigen::Quaterniond::Identity();
-    return pose;
-  }
-
 } // namespace robot_interfaces

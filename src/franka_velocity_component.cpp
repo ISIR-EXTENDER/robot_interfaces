@@ -20,11 +20,11 @@ namespace robot_interfaces
     }
     // setup states for franka
     // cartesian pose of end effector
-    for (size_t i = 0; i < 16; i++)
-    {
-      std::string franka_state_name = std::to_string(i) + "/cartesian_pose_state";
-      state_names.emplace_back(franka_state_name);
-    }
+    // for (size_t i = 0; i < 16; i++)
+    // {
+    //   std::string franka_state_name = std::to_string(i) + "/cartesian_pose_state";
+    //   state_names.emplace_back(franka_state_name);
+    // }
     // joints
     for (size_t i = 1; i <= 7; i++)
     {
@@ -55,11 +55,6 @@ namespace robot_interfaces
     }
   }
 
-  CartesianPosition FrankaCartesianVelocity::getCurrentEndEffectorPose() const
-  {
-    // Return FK pose
-    return computeForwardKinematics();
-  }
 
   CartesianPosition FrankaCartesianVelocity::getPoseFromStateInterfaces() const
   {

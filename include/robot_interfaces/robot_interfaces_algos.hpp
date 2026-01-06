@@ -4,7 +4,10 @@
 #include <memory>
 #include <string>
 
-#include "robot_interfaces/franka_velocity_component.hpp"
+#ifdef BUILD_FRANKA_SUPPORT
+  #include "robot_interfaces/franka_velocity_component.hpp"
+#endif
+
 #include "robot_interfaces/kinova_velocity_component.hpp"
 #include "robot_interfaces/explorer_joint_position_component.hpp"
 #include "robot_interfaces/generic_component.hpp"
