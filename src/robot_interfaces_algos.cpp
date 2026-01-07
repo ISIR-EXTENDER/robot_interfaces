@@ -22,11 +22,11 @@ namespace robot_interfaces
                   "Creating KinovaCartesianVelocity for robot_type='%s'", robot_type.c_str());
       return std::make_unique<KinovaCartesianVelocity>();
     }
-    else if (robot_type == "explorer_joint_position")
+    else if (robot_type == "explorer_velocity")
     {
       RCLCPP_INFO(rclcpp::get_logger("RobotInterfaceFactory"),
-                  "Creating ExPlorerJointPosition for robot_type='%s'", robot_type.c_str());
-      return std::make_unique<ExplorerJointPosition>();
+                  "Creating ExplorerCartesianVelocity for robot_type='%s'", robot_type.c_str());
+      return std::make_unique<ExplorerCartesianVelocity>();
     }
     else
     {
