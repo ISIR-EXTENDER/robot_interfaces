@@ -50,7 +50,8 @@ set(SRCS
   src/kinova_velocity_component.cpp 
   src/generic_component.cpp
   src/robot_interfaces_algos.cpp
-  src/explorer_joint_position_component.cpp
+  src/joint_position_component.cpp
+  src/explorer_velocity_component.cpp
 )
 
 if(ENABLE_FRANKA)

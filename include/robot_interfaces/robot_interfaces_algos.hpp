@@ -9,7 +9,7 @@
 #endif
 
 #include "robot_interfaces/kinova_velocity_component.hpp"
-#include "robot_interfaces/explorer_joint_position_component.hpp"
+#include "robot_interfaces/explorer_velocity_component.hpp"
 #include "robot_interfaces/generic_component.hpp"
 
 namespace robot_interfaces
