@@ -62,7 +62,7 @@ namespace robot_interfaces
      * @brief High-level initialization for kinematics. 
      * Called during controller on_configure.
      */
-    bool initKinematics(const std::string &urdf_xml,
+    virtual bool initKinematics(const std::string &urdf_xml,
                         const std::string &base_frame,
                         const std::string &tool_frame);
     // ==================== Abstract Methods ====================
