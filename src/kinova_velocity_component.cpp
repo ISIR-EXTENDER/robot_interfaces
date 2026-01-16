@@ -17,7 +17,15 @@ namespace robot_interfaces
       command_names.emplace_back(command_interface_name);
     }
 
-    state_names.clear();
+    for (size_t i = 1; i <= 7; i++)
+    {
+      std::string franka_state_name = "joint_" + std::to_string(i) + "/position";
+      state_names.emplace_back(franka_state_name);
+      franka_state_name = "joint_" + std::to_string(i) + "/velocity";
+      state_names.emplace_back(franka_state_name);
+      franka_state_name = "joint_" + std::to_string(i) + "/effort";
+      state_names.emplace_back(franka_state_name);
+    }
   }
 
   KinovaCartesianVelocity::~KinovaCartesianVelocity() = default;
@@ -67,10 +75,4 @@ namespace robot_interfaces
     }
     return success;
   }
-
-  CartesianPosition KinovaCartesianVelocity::getCurrentEndEffectorPose() const
-  {
-    return computeForwardKinematics();
-  }
-
 } // namespace robot_interfaces
