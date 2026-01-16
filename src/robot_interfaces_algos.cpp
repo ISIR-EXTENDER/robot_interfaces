@@ -7,15 +7,26 @@ namespace robot_interfaces
   {
     if (robot_type == "franka_velocity")
     {
-      RCLCPP_INFO(rclcpp::get_logger("RobotInterfaceFactory"),
-                  "Creating FrankaCartesianVelocity for robot_type='%s'", robot_type.c_str());
+#ifdef BUILD_FRANKA_SUPPORT
+      RCLCPP_INFO(rclcpp::get_logger("RobotInterfaceFactory"), "Creating FrankaCartesianVelocity");
       return std::make_unique<FrankaCartesianVelocity>();
+#else
+      RCLCPP_ERROR(rclcpp::get_logger("RobotInterfaceFactory"),
+                   "Franka support requested, but this library was built without franka_hw!");
+      return nullptr;
+#endif
     }
     else if (robot_type == "kinova_velocity")
     {
       RCLCPP_INFO(rclcpp::get_logger("RobotInterfaceFactory"),
                   "Creating KinovaCartesianVelocity for robot_type='%s'", robot_type.c_str());
       return std::make_unique<KinovaCartesianVelocity>();
+    }
+    else if (robot_type == "explorer_velocity")
+    {
+      RCLCPP_INFO(rclcpp::get_logger("RobotInterfaceFactory"),
+                  "Creating ExplorerCartesianVelocity for robot_type='%s'", robot_type.c_str());
+      return std::make_unique<ExplorerCartesianVelocity>();
     }
     else
     {

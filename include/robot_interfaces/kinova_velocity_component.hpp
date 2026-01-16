@@ -24,9 +24,7 @@ namespace robot_interfaces
     ~KinovaCartesianVelocity();
 
     bool setCommand(const CommandVariant &command) override;
-
-    CartesianPosition getCurrentEndEffectorPose() const override;
-
+    
   private:
     // Robot-specific hardware interface names for cartesian twist commands
     const std::array<std::string, 6> command_interface_names_{
