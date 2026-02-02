@@ -37,6 +37,17 @@ namespace robot_interfaces
     }
   }
 
+  void FrankaCartesianVelocity::set_commands_names(std::vector<std::string> custom_names)
+  {
+    if (command_names.empty())
+    {
+      for (size_t i = 0; i < command_names.size(); ++i)
+      {
+        command_names.emplace_back(component_name + "/" + std::to_string(i + 1));
+      }
+    }
+  }
+
   bool FrankaCartesianVelocity::setCommand(const CommandVariant &command)
   {
     if (const auto *vel_command = std::get_if<CartesianVelocity>(&command))

@@ -39,6 +39,8 @@ namespace robot_interfaces
 
     bool setCommand(const CommandVariant &command) override;
 
+    void set_commands_names(std::vector<std::string> custom_names = {}) override;
+
     // Public helper for debugging: derive EE pose from the first 16 state interfaces (4x4 pose).
     // Returns translation + quaternion; if fewer than 16 values are present, returns a neutral
     // pose.
