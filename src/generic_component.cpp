@@ -50,14 +50,11 @@ namespace robot_interfaces
     }
   }
 
-  void GenericComponent::set_commands_names()
+  void GenericComponent::set_commands_names(std::vector<std::string> custom_names)
   {
-    if (command_names.empty())
+    for (size_t i = 0; i < custom_names.size(); ++i)
     {
-      for (size_t i = 0; i < command_names.capacity(); ++i)
-      {
-        command_names.emplace_back(component_name + "/" + std::to_string(i + 1));
-      }
+      command_names.emplace_back(custom_names[i]);
     }
   }
 

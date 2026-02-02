@@ -10,21 +10,14 @@ namespace robot_interfaces
     RCLCPP_INFO(rclcpp::get_logger("KinovaCartesianVelocity"),
                 "Kinova Gen3 (7-DOF) Cartesian Velocity Interface initialized.");
 
-    // Set up command interface names
-    command_names.clear();
-    for (const auto &command_interface_name : command_interface_names_)
-    {
-      command_names.emplace_back(command_interface_name);
-    }
-
     for (size_t i = 1; i <= 7; i++)
     {
-      std::string franka_state_name = "joint_" + std::to_string(i) + "/position";
-      state_names.emplace_back(franka_state_name);
-      franka_state_name = "joint_" + std::to_string(i) + "/velocity";
-      state_names.emplace_back(franka_state_name);
-      franka_state_name = "joint_" + std::to_string(i) + "/effort";
-      state_names.emplace_back(franka_state_name);
+      std::string kinova_state_name = "joint_" + std::to_string(i) + "/position";
+      state_names.emplace_back(kinova_state_name);
+      kinova_state_name = "joint_" + std::to_string(i) + "/velocity";
+      state_names.emplace_back(kinova_state_name);
+      kinova_state_name = "joint_" + std::to_string(i) + "/effort";
+      state_names.emplace_back(kinova_state_name);
     }
   }
 

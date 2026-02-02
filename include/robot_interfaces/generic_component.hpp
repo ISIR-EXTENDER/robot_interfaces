@@ -47,7 +47,7 @@ namespace robot_interfaces
     // ==================== Getters / Setters ====================
 
     virtual void set_states_names();
-    virtual void set_commands_names();
+    virtual void set_commands_names(std::vector<std::string> custom_names = {});
     
     std::vector<std::string> get_states_names() const { return state_names; }
     std::vector<std::string> get_commands_names() const { return command_names; }

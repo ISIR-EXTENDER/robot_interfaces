@@ -24,11 +24,5 @@ namespace robot_interfaces
     ~KinovaCartesianVelocity();
 
     bool setCommand(const CommandVariant &command) override;
-    
-  private:
-    // Robot-specific hardware interface names for cartesian twist commands
-    const std::array<std::string, 6> command_interface_names_{
-        "tcp/twist.linear.x",  "tcp/twist.linear.y",  "tcp/twist.linear.z",
-        "tcp/twist.angular.x", "tcp/twist.angular.y", "tcp/twist.angular.z"};
   };
 } // namespace robot_interfaces

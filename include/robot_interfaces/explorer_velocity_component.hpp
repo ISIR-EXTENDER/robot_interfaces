@@ -5,8 +5,6 @@
 #include <string>
 #include <vector>
 
-#include <kdl/chainiksolvervel_wdls.hpp>
-
 #include <Eigen/Dense>
 
 #include "geometry_msgs/msg/twist.hpp"
@@ -35,17 +33,11 @@ namespace robot_interfaces
      */
     explicit ExplorerCartesianVelocity();
 
-    // Override of the initKinematics
-    bool initKinematics(const std::string &urdf_xml, const std::string &base_frame,
-                        const std::string &tool_frame) override;
-
     bool setCommand(const CommandVariant &command) override;
 
   private:
     const std::array<std::string, 6> joint_names{"joint_1", "joint_2", "joint_3",
                                                  "joint_4", "joint_5", "joint_6"};
 
-    std::unique_ptr<KDL::ChainIkSolverVel_wdls> ik_vel_solver_;
-    KDL::JntArray qdot_out_;
   }; // class ExplorerCartesianVelocity
 } // namespace robot_interfaces
