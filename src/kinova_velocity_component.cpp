@@ -1,4 +1,6 @@
 #include "robot_interfaces/kinova_velocity_component.hpp"
+#include <algorithm>
+#include <cmath>
 #include <rclcpp/rclcpp.hpp>
 
 namespace robot_interfaces
@@ -33,38 +35,30 @@ namespace robot_interfaces
       return false;
     }
 
-    if (command_interfaces.size() != command_interface_names_.size())
+    if (command_interfaces.size() != command_names.size())
     {
       RCLCPP_ERROR(rclcpp::get_logger("KinovaCartesianVelocity"),
                    "Mismatch between command interfaces (%zu) and expected size (%zu).",
-                   command_interfaces.size(), command_interface_names_.size());
+                   command_interfaces.size(), command_names.size());
       return false;
     }
 
-    std::vector<double> values{
-        vel_command->linear.x(),  
-        vel_command->linear.y(),  
-        vel_command->linear.z(),  
-        vel_command->angular.x(), 
-        vel_command->angular.y(), 
-        vel_command->angular.z() 
-    };
+    std::vector<double> values{vel_command->linear.x(),  vel_command->linear.y(),
+                               vel_command->linear.z(),  vel_command->angular.x(),
+                               vel_command->angular.y(), vel_command->angular.z()};
 
     // Log at INFO level if any non-zero command
-    /*
     if (std::any_of(values.begin(), values.end(), [](double v) { return std::abs(v) > 0.001; }))
     {
       RCLCPP_INFO(rclcpp::get_logger("KinovaCartesianVelocity"),
-                   "setCommand: lin[%.4f, %.4f, %.4f] ang[%.4f, %.4f, %.4f]",
-                   values[0], values[1], values[2], values[3], values[4], values[5]);
+                  "setCommand: lin[%.4f, %.4f, %.4f] ang[%.4f, %.4f, %.4f]", values[0], values[1],
+                  values[2], values[3], values[4], values[5]);
     }
-    */
 
     bool success = set_values(values);
     if (!success)
     {
-      RCLCPP_WARN(rclcpp::get_logger("KinovaCartesianVelocity"),
-                  "Failed to set command values");
+      RCLCPP_WARN(rclcpp::get_logger("KinovaCartesianVelocity"), "Failed to set command values");
     }
     return success;
   }
