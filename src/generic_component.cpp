@@ -127,7 +127,10 @@ namespace robot_interfaces
     // Initialize Solvers and Buffers
     unsigned int nj = kdl_chain_.getNrOfJoints();
     fk_solver_ = std::make_unique<KDL::ChainFkSolverPos_recursive>(kdl_chain_);
+    jac_solver_ = std::make_unique<KDL::ChainJntToJacSolver>(kdl_chain_);
     kdl_joint_angles_.resize(nj);
+    kdl_jacobian_cache_.resize(nj);
+
 
     kdl_joint_to_interface_index_.clear();
     for (size_t i = 0; i < kdl_chain_.getNrOfSegments(); ++i)
@@ -189,5 +192,29 @@ namespace robot_interfaces
   {
     // Return FK pose
     return computeFK();
+  }
+
+  JointCommand GenericComponent::getCurrentJointPose() const
+  {
+    JointCommand joint_position;
+    for (size_t i = 0; i < kdl_joint_to_interface_index_.size(); ++i)
+    {
+      size_t interface_idx = kdl_joint_to_interface_index_[i];
+      kdl_joint_angles_(i) = state_interfaces[interface_idx].get().get_value();
+    }
+    joint_position.command.assign(kdl_joint_angles_.data.data(),
+                                  kdl_joint_angles_.data.data() + kdl_joint_angles_.data.size());
+
+    return joint_position;
+  }
+
+  Eigen::MatrixXd GenericComponent::getEndEffectorJacobian() const
+  {
+    if (jac_solver_->JntToJac(kdl_joint_angles_, kdl_jacobian_cache_) < 0) 
+    {
+        return Eigen::MatrixXd::Zero(6, kdl_chain_.getNrOfJoints());
+    }
+
+    return kdl_jacobian_cache_.data;
   }
 } // namespace robot_interfaces
