@@ -12,15 +12,16 @@
 // RCLCPP (Logging only)
 #include "rclcpp/rclcpp.hpp"
 
-// KDL
-#include <kdl/chain.hpp>
-#include <kdl/chainfksolverpos_recursive.hpp>
-#include <kdl/chainjnttojacsolver.hpp>
-#include <kdl/frames.hpp>
-#include <kdl/jntarray.hpp>
-
-// URDF
-#include <urdf/model.h>
+// Pinocchio
+#include <pinocchio/algorithm/crba.hpp>
+#include <pinocchio/algorithm/frames.hpp>
+#include <pinocchio/algorithm/jacobian.hpp>
+#include <pinocchio/algorithm/kinematics.hpp>
+#include <pinocchio/algorithm/rnea.hpp>
+#include <pinocchio/fwd.hpp>
+#include <pinocchio/multibody/data.hpp>
+#include <pinocchio/multibody/model.hpp>
+#include <pinocchio/parsers/urdf.hpp>
 
 #include "command_types.hpp"
 
@@ -28,7 +29,7 @@ namespace robot_interfaces
 {
   /**
    * @brief Generic robot interfaces for ros2_control logic.
-   * Handles interface management and KDL-based kinematics.
+   * Handles interface management and pinocchio-based kinematics and dynamics.
    */
   class GenericComponent
   {
@@ -70,8 +71,7 @@ namespace robot_interfaces
      * @brief High-level initialization for kinematics.
      * Called during controller on_configure.
      */
-    virtual bool initKinematics(const std::string &urdf_xml, const std::string &base_frame,
-                                const std::string &tool_frame);
+    virtual bool initKinematics(const std::string &urdf_xml, const std::string &tool_frame);
     // ==================== Abstract Methods ====================
 
     virtual bool setCommand(const CommandVariant &command) = 0;
@@ -80,16 +80,27 @@ namespace robot_interfaces
     CartesianPosition getCurrentEndEffectorPose() const;
     JointCommand getCurrentJointPose() const;
     Eigen::MatrixXd getEndEffectorJacobian() const;
+    Eigen::MatrixXd getMassMatrix() const;
+    Eigen::VectorXd getNonLinearEffects() const;
+
+    const Eigen::VectorXd &getJointPositions() const
+    {
+      return q;
+    }
+    const Eigen::VectorXd &getJointVelocities() const
+    {
+      return v;
+    }
+    const Eigen::VectorXd &getJointTorques() const
+    {
+      return tau;
+    }
+
+    /// @brief function to call at the start of update, in order to update pinocchio data with new
+    /// inputs from sensor (q, v, tau)
+    void syncState() const;
 
   protected:
-    // ==================== Core Math & Logic ====================
-
-    /**
-     * @brief Computes FK using current state interface values.
-     * Real-time safe: no allocations, no mutexes, no strings.
-     */
-    CartesianPosition computeFK() const;
-
     // ==================== Data Members ====================
     std::string component_name;
 
@@ -102,25 +113,21 @@ namespace robot_interfaces
     std::vector<std::reference_wrapper<hardware_interface::LoanedCommandInterface>>
         command_interfaces;
 
-    // Kinematic structures
-    urdf::Model urdf_model;
-    KDL::Chain kdl_chain_;
-    std::unique_ptr<KDL::ChainFkSolverPos_recursive> fk_solver_;
-    std::unique_ptr<KDL::ChainJntToJacSolver> jac_solver_;
+    pinocchio::Model model;
+    mutable pinocchio::Data data;
+    pinocchio::FrameIndex tool_frame_id;
 
-    // Frames
-    std::string base_frame_name_ = "base_link";
-    std::string tool_frame_name_ = "tool_frame";
+    mutable Eigen::VectorXd q;
+    mutable Eigen::VectorXd v;
+    mutable Eigen::VectorXd tau;
 
-    // Pre-allocated buffers for real-time loops
-    mutable KDL::JntArray kdl_joint_angles_;
+    struct JointInterfaceIndices
+    {
+      int position = -1;
+      int velocity = -1;
+      int effort = -1;
+    };
+    std::vector<JointInterfaceIndices> joint_map;
     mutable CartesianPosition last_valid_pose_;
-    mutable KDL::Jacobian kdl_jacobian_cache_;
-
-    /**
-     * @brief Maps KDL joint indices to state_interfaces indices.
-     * index: KDL Joint Index -> value: state_interfaces index.
-     */
-    std::vector<size_t> kdl_joint_to_interface_index_;
   };
 } // namespace robot_interfaces
