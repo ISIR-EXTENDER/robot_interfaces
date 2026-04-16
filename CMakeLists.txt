@@ -22,10 +22,8 @@ find_package(Eigen3 REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 
-### KDL and URDF
-find_package(orocos_kdl REQUIRED)
-find_package(kdl_parser REQUIRED)
-find_package(urdf REQUIRED)
+### Pinocchio
+find_package(pinocchio REQUIRED)
 
 ### ROS2_control packages
 foreach(dep IN ITEMS ${ROS2_CONTROL_DEPS})
@@ -66,10 +64,9 @@ add_library(
 target_include_directories(
   robot_interfaces PRIVATE include ${EIGEN3_INCLUDE_DIRS})
 
-target_link_libraries(robot_interfaces Eigen3::Eigen ${orocos_kdl_LIBRARIES})
+target_link_libraries(robot_interfaces Eigen3::Eigen pinocchio::pinocchio)
 
-ament_target_dependencies(robot_interfaces Eigen3 geometry_msgs sensor_msgs 
-                          orocos_kdl kdl_parser urdf
+ament_target_dependencies(robot_interfaces geometry_msgs sensor_msgs 
                           ${ROS2_CONTROL_DEPS})
 
 # Franka specific linking and definitions
@@ -91,7 +88,6 @@ ament_export_libraries(robot_interfaces)
 # Base exports
 ament_export_dependencies(
   Eigen3 geometry_msgs sensor_msgs 
-  orocos_kdl kdl_parser urdf
   ${ROS2_CONTROL_DEPS}
 )
 
@@ -104,12 +100,22 @@ endif()
 if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
 
-  # Generic FK Unit Test (works for any robot via environment variables)
   ament_add_gtest(test_generic_fk_unit test/test_generic_fk_unit.cpp)
+  
   target_include_directories(test_generic_fk_unit PRIVATE include)
-  target_link_libraries(test_generic_fk_unit robot_interfaces)
-  ament_target_dependencies(test_generic_fk_unit rclcpp sensor_msgs Eigen3 orocos_kdl kdl_parser urdf)
+  
+  target_link_libraries(test_generic_fk_unit 
+    robot_interfaces 
+    pinocchio::pinocchio
+    Eigen3::Eigen
+  )
 
+  ament_target_dependencies(test_generic_fk_unit 
+    rclcpp 
+    sensor_msgs 
+    geometry_msgs
+    hardware_interface
+  )
 endif()
 
 ament_package()
