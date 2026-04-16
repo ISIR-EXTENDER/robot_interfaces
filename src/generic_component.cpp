@@ -95,8 +95,6 @@ namespace robot_interfaces
     return true;
   }
 
-  // ==================== Kinematics Support (KDL-based) ====================
-
   bool GenericComponent::initKinematics(const std::string &urdf_xml, const std::string &tool_frame)
   {
     try
