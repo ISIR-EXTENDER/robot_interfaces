@@ -87,7 +87,7 @@ ament_export_libraries(robot_interfaces)
 
 # Base exports
 ament_export_dependencies(
-  Eigen3 geometry_msgs sensor_msgs 
+  Eigen3 geometry_msgs sensor_msgs pinocchio
   ${ROS2_CONTROL_DEPS}
 )
 
