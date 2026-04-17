@@ -26,7 +26,7 @@ namespace robot_interfaces
   {
   public:
     /**
-     * @brief Construct a new Explorer Joint Position object.
+     * @brief Construct a new Joint Position object.
      *
      * Initializes the component, setting up its command interface names and preparing it
      * to receive joint position commands.
@@ -34,33 +34,30 @@ namespace robot_interfaces
     explicit GenericJointPosition();
     GenericJointPosition(const std::vector<std::string> &jnames);
 
-    Eigen::VectorXd getLowerJointLimits() const
-    {
-      return model.lowerPositionLimit;
-    }
-    Eigen::VectorXd getUpperJointLimits() const
-    {
-      return model.upperPositionLimit;
-    }
+    Eigen::VectorXd getLowerPositionJointLimits() const;
 
-    Eigen::VectorXd getVelocityJointLimits() const
-    {
-      return model.velocityLimit;
-    }
+    Eigen::VectorXd getUpperPositionJointLimits() const;
 
-    Eigen::VectorXd getEffortJointLimits() const
-    {
-      return model.effortLimit;
-    }
+    Eigen::VectorXd getVelocityJointLimits() const;
+
+    Eigen::VectorXd getEffortJointLimits() const;
 
     std::vector<std::string> getJointNames() const
     {
-      return std::vector<std::string>(joint_names.begin(), joint_names.end());
+
+      return joint_names;
     }
 
     bool setCommand(const CommandVariant &command) override;
 
   private:
+    /**
+     * @brief Internal helper to extract limits for the specified joint_names.
+     * @param source_vector The global Pinocchio limit vector (e.g., model.lowerPositionLimit)
+     * @param use_v_idx If true, uses idx_v/nv (velocity/effort). If false, uses idx_q/nq
+     * (position).
+     */
+    Eigen::VectorXd getLimitsInternal(const Eigen::VectorXd &source_vector, bool use_v_idx) const;
     std::vector<std::string> joint_names;
   }; // class GenericJointPosition
 } // namespace robot_interfaces
