@@ -7,7 +7,7 @@ A ROS2 hardware interface library that provides unified robot control abstractio
 The `robot_interfaces` package implements hardware interfaces for ROS2 control, enabling seamless integration between high-level controllers and robot hardware. The library provides:
 
 - **Unified Interface Abstraction**: Common API for different robot types and control modes
-- **Forward Kinematics**: KDL-based real-time pose computation for any URDF-described robot
+- **Kinematics & Dynamics**: Pinocchio-based real-time forward kinematics, Jacobians, mass matrix, and dynamics computation for any URDF-described robot
 - **Multi-Robot Support**: Interfaces for Franka Emika, Kinova Gen3, and custom robots
 - **Multiple Control Modes**: Cartesian velocity and joint position control interfaces
 - **Thread-Safe Operation**: Executor-driven state management with proper synchronization
@@ -21,8 +21,8 @@ ROS2 Control Framework
          ↓
 Robot Interface Library
     ├── GenericComponent (Base Class)
-    │   ├── KDL Forward Kinematics (URDF-based)
-    │   ├── Joint State Management
+    │   ├── Pinocchio-Based Kinematics & Dynamics (URDF-based)
+    │   ├── Joint State Management with syncState()
     │   ├── Thread-Safe State Access
     │   └── Lifecycle Management
     │
@@ -39,10 +39,10 @@ Robot Interface Library
 
 The foundation of all robot interfaces, providing:
 
-- **KDL-Based Forward Kinematics**: Real-time end-effector pose computation from joint states
-- **Joint State Integration**: Executor-driven subscription to `/joint_states` topic
-- **URDF Support**: Automatic model parsing and kinematic chain extraction
-- **Frame Management**: Configurable base and tool frame mapping
+- **Pinocchio-Based Kinematics & Dynamics**: Real-time end-effector pose computation, Jacobians, and dynamics from joint states via Pinocchio algorithms (FK, CRBA, RNEA)
+- **Joint State Integration**: Explicit `syncState()` for updating internal Pinocchio model with current sensor data
+- **URDF Support**: Automatic model parsing via Pinocchio's URDF parser
+- **Frame Management**: Configurable base and tool frame mapping using Pinocchio frame IDs
 - **Thread Safety**: Mutex-protected state access for real-time operation
 
 ## Available Interfaces
@@ -63,7 +63,7 @@ Impedance-controlled arm with built-in force/torque sensing. Provides Cartesian 
 **Configuration**:
 ```cpp
 robot_interfaces::FrankaCartesianVelocity component;
-component.initKinematics(urdf_xml, "base", "fr3_hand_tcp");
+component.initKinematics(urdf_xml, "fr3_hand_tcp");
 ```
 
 #### KinovaCartesianVelocity
@@ -78,7 +78,7 @@ Cartesian velocity control for Kinova Gen3 manipulators with integrated gripper 
 **Configuration**:
 ```cpp
 robot_interfaces::KinovaCartesianVelocity component;
-component.initKinematics(urdf_xml, "gen3_base_link", "gen3_end_effector_link");
+component.initKinematics(urdf_xml, "gen3_end_effector_link");
 ```
 
 #### ExplorerCartesianVelocity
@@ -112,33 +112,40 @@ Provides joint-space position control with configurable joint limits and safety 
 - `FLOATING`: 6DOF free joints
 - `PLANAR`: 2D planar motion joints
 
-## Forward Kinematics
+## Kinematics & Dynamics
 
-All interfaces inherit KDL-based forward kinematics from `GenericComponent`, providing real-time end-effector pose computation.
+All interfaces inherit Pinocchio-based kinematics and dynamics from `GenericComponent`, providing real-time end-effector pose computation, Jacobians, and dynamics calculations.
+
+### Core Algorithms
+
+- **Forward Kinematics (FK)**: `pinocchio::forwardKinematics()` for end-effector pose from joint positions
+- **Jacobians**: `pinocchio::computeJointJacobians()` for analytical 6×n Jacobian matrix
+- **Mass Matrix**: `pinocchio::crba()` (Composite Rigid Body Algorithm) for inertia matrix computation
+- **Non-Linear Effects**: `pinocchio::nonLinearEffects()` for gravity and Coriolis vectors (via RNEA with τ=0)
+- **Full Dynamics**: `pinocchio::rnea()` (Recursive Newton-Euler Algorithm) for inverse dynamics
 
 ### Requirements
 
 - **URDF Source**: Robot description via `/robot_description` parameter or direct XML
-- **Frame Names**: Base and tool frame names matching URDF
-- **Joint States**: Current joint positions via `/joint_states` topic
+- **Frame Names**: tool frame names matching URDF
+- **Joint States**: Current joint positions and velocities (updated via `syncState()`)
 
-### Usage
+### Critical: State Synchronization
+
+All forward kinematics and dynamics computations require calling `syncState()` at the start of each control loop to update the internal Pinocchio model with current sensor data:
 
 ```cpp
-// Initialize kinematics
-component.initKinematics(urdf_xml, "base_frame", "tool_frame");
+// Per control loop (CRITICAL - must be called before any FK/dynamics queries)
+component.syncState();  // Update q, v from hardware interfaces
 
-// Get current end-effector pose
+// Now query kinematics/dynamics
 robot_interfaces::CartesianPosition pose = component.getCurrentEndEffectorPose();
+Eigen::MatrixXd jacobian = component.getEndEffectorJacobian();
+Eigen::MatrixXd mass_matrix = component.getMassMatrix();
+Eigen::VectorXd nonlin_effects = component.getNonLinearEffects();
 ```
 
-### Features
-
-- **Real-time Computation**: Optimized for control loop execution
-- **Quaternion Normalization**: Automatic normalization and hemisphere continuity
-- **Thread Safety**: Safe access from multiple threads
-- **Error Handling**: Graceful degradation on missing data
-- **Debug Logging**: Configurable diagnostic output
+**Why `syncState()` is necessary**: Pinocchio requires explicit state synchronization. This allows precise control over when the model is updated, essential for real-time determinism.
 
 ## Factory Interface
 
@@ -162,7 +169,7 @@ auto component = robot_interfaces::create_robot_component("explorer_velocity");
 ## Dependencies
 
 - **ROS2**: `rclcpp`, `geometry_msgs`, `hardware_interface`, `controller_interface`
-- **KDL**: Orocos KDL for kinematics (via `orocos_kdl_vendor`)
+- **Pinocchio**: Rigid body dynamics library for kinematics and dynamics computation
 - **Eigen3**: Linear algebra library
 - **URDF**: Robot description parsing
 
@@ -207,16 +214,6 @@ TEST_JOINT_PREFIX=fr3_joint \
 ./build/robot_interfaces/test_generic_fk_unit
 ```
 
-### Test Configuration
-
-Environment variables for custom robot testing:
-
-- `TEST_ROBOT_NAME`: Robot identifier (default: `gen3_2f85`)
-- `TEST_BASE_FRAME`: Base frame name (default: `gen3_base_link`)
-- `TEST_EE_FRAME`: End-effector frame name (default: `gen3_end_effector_link`)
-- `TEST_NUM_JOINTS`: Number of joints (default: `7`)
-- `TEST_JOINT_PREFIX`: Joint name prefix (default: `gen3_joint_`)
-
 ## Extending the Library
 
 ### Adding New Robot Interfaces
@@ -232,11 +229,3 @@ Environment variables for custom robot testing:
 2. Implement mode-specific logic
 3. Add appropriate state and command interfaces
 4. Update factory and configuration systems
-
-## Future Development
-
-- **Inverse Kinematics**: KDL-based IK solver integration
-- **Collision Detection**: Real-time collision checking
-- **Trajectory Planning**: Built-in trajectory generation
-- **Multi-Robot Coordination**: Support for coordinated multi-arm systems
-- **Simulation Interfaces**: Enhanced Gazebo integration
