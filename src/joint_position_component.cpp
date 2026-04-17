@@ -10,10 +10,12 @@ namespace robot_interfaces
     // setup specific command name
     for (const auto &jname : joint_names)
     {
-      std::string explorer_command_name = jname + "/position";
-      command_names.emplace_back(explorer_command_name);
+      std::string command_name_tmp = jname + "/position";
+      command_names.emplace_back(command_name_tmp);
 
       state_names.emplace_back(jname + "/position");
+      state_names.emplace_back(jname + "/velocity");
+      state_names.emplace_back(jname + "/effort");
     }
   }
 
@@ -26,67 +28,66 @@ namespace robot_interfaces
     // setup specific command name
     for (const auto &jname : joint_names)
     {
-      std::string explorer_command_name = jname + "/position";
-      command_names.emplace_back(explorer_command_name);
+      std::string command_name_tmp = jname + "/position";
+      command_names.emplace_back(command_name_tmp);
 
       state_names.emplace_back(jname + "/position");
+      state_names.emplace_back(jname + "/velocity");
+      state_names.emplace_back(jname + "/effort");
     }
   }
 
-  bool GenericJointPosition::initKinematics(const std::string &urdf_xml,
-                                            const std::string &base_frame,
-                                            const std::string &tool_frame)
+  Eigen::VectorXd GenericJointPosition::getLowerPositionJointLimits() const
   {
-    if (!GenericComponent::initKinematics(urdf_xml, base_frame, tool_frame))
+    return getLimitsInternal(model.lowerPositionLimit, false);
+  }
+
+  Eigen::VectorXd GenericJointPosition::getUpperPositionJointLimits() const
+  {
+    return getLimitsInternal(model.upperPositionLimit, false);
+  }
+
+  Eigen::VectorXd GenericJointPosition::getVelocityJointLimits() const
+  {
+    return getLimitsInternal(model.velocityLimit, true);
+  }
+
+  Eigen::VectorXd GenericJointPosition::getEffortJointLimits() const
+  {
+    return getLimitsInternal(model.effortLimit, true);
+  }
+
+  Eigen::VectorXd GenericJointPosition::getLimitsInternal(const Eigen::VectorXd &source_vector,
+                                                          bool use_v_idx) const
+  {
+    int total_dim = 0;
+    for (const auto &name : joint_names)
     {
-      return false;
+      if (model.existJointName(name))
+      {
+        auto id = model.getJointId(name);
+        total_dim += (use_v_idx ? model.joints[id].nv() : model.joints[id].nq());
+      }
     }
 
-    for (const std::string &jname : joint_names)
+    Eigen::VectorXd result(total_dim);
+    int current_offset = 0;
+
+    for (const auto &name : joint_names)
     {
-      JointLimits jlimit;
-      jlimit.has_position_limits = false;
+      if (!model.existJointName(name))
+        continue;
 
-      auto joint = urdf_model.getJoint(jname);
-      if (joint)
-      {
-        switch (joint->type)
-        {
-        case urdf::Joint::REVOLUTE:
-          jlimit.jtype = JointType::REVOLUTE;
-          break;
-        case urdf::Joint::CONTINUOUS:
-          jlimit.jtype = JointType::CONTINUOUS;
-          break;
-        case urdf::Joint::PRISMATIC:
-          jlimit.jtype = JointType::PRISMATIC;
-          break;
-        case urdf::Joint::FIXED:
-          jlimit.jtype = JointType::FIXED;
-          break;
-        case urdf::Joint::FLOATING:
-          jlimit.jtype = JointType::FLOATING;
-          break;
-        case urdf::Joint::PLANAR:
-          jlimit.jtype = JointType::PLANAR;
-          break;
-        default:
-          jlimit.jtype = JointType::UNKNOWN;
-          break;
-        }
-      }
+      auto id = model.getJointId(name);
+      int start_idx = (use_v_idx ? model.joints[id].idx_v() : model.joints[id].idx_q());
+      int size = (use_v_idx ? model.joints[id].nv() : model.joints[id].nq());
 
-      if (joint->limits)
-      {
-        jlimit.min_position = joint->limits->lower;
-        jlimit.max_position = joint->limits->upper;
-        jlimit.has_position_limits = true;
-        jlimit.max_velocity = joint->limits->velocity;
-        jlimit.has_velocity_limits = true;
-      }
-      joint_limits_.push_back(jlimit);
+      result.segment(current_offset, size) = source_vector.segment(start_idx, size);
+
+      current_offset += size;
     }
-    return true;
+
+    return result;
   }
 
   bool GenericJointPosition::setCommand(const CommandVariant &command)

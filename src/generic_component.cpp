@@ -1,10 +1,8 @@
 #include "robot_interfaces/generic_component.hpp"
 
 #include "controller_interface/helpers.hpp"
-#include <kdl_parser/kdl_parser.hpp>
 #include <sstream>
 #include <unordered_map>
-#include <urdf/model.h>
 
 namespace robot_interfaces
 {
@@ -97,124 +95,98 @@ namespace robot_interfaces
     return true;
   }
 
-  // ==================== Kinematics Support (KDL-based) ====================
-
-  bool GenericComponent::initKinematics(const std::string &urdf_xml, const std::string &base_frame,
-                                        const std::string &tool_frame)
+  bool GenericComponent::initKinematics(const std::string &urdf_xml, const std::string &tool_frame)
   {
-    // Parse URDF
-    if (!urdf_model.initString(urdf_xml))
+    try
     {
-      RCLCPP_ERROR(rclcpp::get_logger(component_name), "URDF Parsing failed.");
-      return false;
-    }
+      pinocchio::urdf::buildModelFromXML(urdf_xml, model);
+      data = pinocchio::Data(model);
+      tool_frame_id = model.getFrameId(tool_frame);
 
-    // Build KDL Chain
-    KDL::Tree tree;
-    if (!kdl_parser::treeFromUrdfModel(urdf_model, tree))
-    {
-      RCLCPP_ERROR(rclcpp::get_logger(component_name), "Failed to extract KDL tree from URDF.");
-      return false;
-    }
+      q.setZero(model.nq);
+      v.setZero(model.nv);
+      tau.setZero(model.nv);
 
-    if (!tree.getChain(base_frame, tool_frame, kdl_chain_))
-    {
-      RCLCPP_ERROR(rclcpp::get_logger(component_name), "Failed to find chain from %s to %s.",
-                   base_frame.c_str(), tool_frame.c_str());
-      return false;
-    }
-
-    // Initialize Solvers and Buffers
-    unsigned int nj = kdl_chain_.getNrOfJoints();
-    fk_solver_ = std::make_unique<KDL::ChainFkSolverPos_recursive>(kdl_chain_);
-    jac_solver_ = std::make_unique<KDL::ChainJntToJacSolver>(kdl_chain_);
-    kdl_joint_angles_.resize(nj);
-    kdl_jacobian_cache_.resize(nj);
-
-
-    kdl_joint_to_interface_index_.clear();
-    for (size_t i = 0; i < kdl_chain_.getNrOfSegments(); ++i)
-    {
-      const auto &joint = kdl_chain_.getSegment(i).getJoint();
-      if (joint.getType() == KDL::Joint::None)
-        continue; // Skip fixed joints
-
-      auto it = std::find_if(state_names.begin(), state_names.end(), [&](const std::string &s) {
-        return s.find(joint.getName()) != std::string::npos &&
-               s.find("/position") != std::string::npos;
-      });
-      if (it == state_names.end())
+      joint_map.clear();
+      // Pinocchio joints: 0 is 'universe', 1..n are actual joints
+      for (size_t i = 1; i < (size_t)model.njoints; ++i)
       {
-        RCLCPP_ERROR(rclcpp::get_logger(component_name), "Joint %s not in interfaces!",
-                     joint.getName().c_str());
-        return false;
-      }
-      kdl_joint_to_interface_index_.push_back(std::distance(state_names.begin(), it));
-    }
+        std::string name = model.names[i];
+        JointInterfaceIndices indices;
 
-    RCLCPP_INFO(rclcpp::get_logger(component_name), "Kinematics initialized for %u joints.", nj);
+        for (size_t j = 0; j < state_names.size(); ++j)
+        {
+          if (state_names[j].find(name) != std::string::npos)
+          {
+            if (state_names[j].find("/position") != std::string::npos)
+              indices.position = j;
+            else if (state_names[j].find("/velocity") != std::string::npos)
+              indices.velocity = j;
+            else if (state_names[j].find("/effort") != std::string::npos)
+              indices.effort = j;
+          }
+        }
+        joint_map.push_back(indices);
+      }
+    }
+    catch (const std::exception &e)
+    {
+      RCLCPP_ERROR(rclcpp::get_logger(component_name), "Pinocchio Init: %s", e.what());
+      return false;
+    }
     return true;
   }
 
-  CartesianPosition GenericComponent::computeFK() const
+  void GenericComponent::syncState() const
   {
+    for (size_t i = 0; i < joint_map.size(); ++i)
+    {
+      if (joint_map[i].position != -1)
+        q(i) = state_interfaces[joint_map[i].position].get().get_value();
+      if (joint_map[i].velocity != -1)
+        v(i) = state_interfaces[joint_map[i].velocity].get().get_value();
+      if (joint_map[i].effort != -1)
+        tau(i) = state_interfaces[joint_map[i].effort].get().get_value();
+    }
+
+    pinocchio::forwardKinematics(model, data, q, v);
+    pinocchio::computeJointJacobians(model, data, q);
+    pinocchio::updateFramePlacements(model, data);
+  }
+
+  CartesianPosition GenericComponent::getCurrentEndEffectorPose() const
+  {
+    const auto &pose_m = data.oMf[tool_frame_id];
     CartesianPosition pose;
+    pose.translation = pose_m.translation();
+    pose.quaternion = Eigen::Quaterniond(pose_m.rotation());
 
-    for (size_t i = 0; i < kdl_joint_to_interface_index_.size(); ++i)
-    {
-      size_t interface_idx = kdl_joint_to_interface_index_[i];
-      kdl_joint_angles_(i) = state_interfaces[interface_idx].get().get_value();
-    }
-
-    KDL::Frame frame;
-    if (fk_solver_->JntToCart(kdl_joint_angles_, frame) < 0)
-    {
-      return last_valid_pose_; // Fallback
-    }
-
-    pose.translation = Eigen::Vector3d(frame.p.x(), frame.p.y(), frame.p.z());
-
-    double x, y, z, w;
-    frame.M.GetQuaternion(x, y, z, w);
-    pose.quaternion = Eigen::Quaterniond(w, x, y, z);
-
-    // Ensure rotation doesn't "flip" (quaternion continuity)
+    // Continuity check
     if (pose.quaternion.dot(last_valid_pose_.quaternion) < 0.0)
-    {
       pose.quaternion.coeffs() *= -1.0;
-    }
 
     last_valid_pose_ = pose;
     return pose;
   }
 
-  CartesianPosition GenericComponent::getCurrentEndEffectorPose() const
-  {
-    // Return FK pose
-    return computeFK();
-  }
-
-  JointCommand GenericComponent::getCurrentJointPose() const
-  {
-    JointCommand joint_position;
-    for (size_t i = 0; i < kdl_joint_to_interface_index_.size(); ++i)
-    {
-      size_t interface_idx = kdl_joint_to_interface_index_[i];
-      kdl_joint_angles_(i) = state_interfaces[interface_idx].get().get_value();
-    }
-    joint_position.command.assign(kdl_joint_angles_.data.data(),
-                                  kdl_joint_angles_.data.data() + kdl_joint_angles_.data.size());
-
-    return joint_position;
-  }
-
   Eigen::MatrixXd GenericComponent::getEndEffectorJacobian() const
   {
-    if (jac_solver_->JntToJac(kdl_joint_angles_, kdl_jacobian_cache_) < 0) 
-    {
-        return Eigen::MatrixXd::Zero(6, kdl_chain_.getNrOfJoints());
-    }
+    Eigen::MatrixXd J(6, model.nv);
+    pinocchio::getFrameJacobian(model, data, tool_frame_id,
+                                pinocchio::ReferenceFrame::LOCAL_WORLD_ALIGNED, J);
+    return J;
+  }
 
-    return kdl_jacobian_cache_.data;
+  Eigen::MatrixXd GenericComponent::getMassMatrix() const
+  {
+    pinocchio::crba(model, data, q);
+    data.M.triangularView<Eigen::Lower>() = data.M.transpose().triangularView<Eigen::Lower>();
+    return data.M;
+  }
+
+  Eigen::VectorXd GenericComponent::getNonLinearEffects() const
+  {
+    // Returns Coriolis + Gravity: b(q, v)
+    return pinocchio::nonLinearEffects(model, data, q, v);
   }
 } // namespace robot_interfaces
