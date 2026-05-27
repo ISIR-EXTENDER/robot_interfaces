@@ -78,7 +78,6 @@ namespace robot_interfaces
 
     // ==================== Helpers Methods ====================
     CartesianPosition getCurrentEndEffectorPose() const;
-    JointCommand getCurrentJointPose() const;
     Eigen::MatrixXd getEndEffectorJacobian() const;
     Eigen::MatrixXd getMassMatrix() const;
     Eigen::VectorXd getNonLinearEffects() const;
